@@ -1,0 +1,150 @@
+
+    using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Threading;
+
+namespace ConsoleApplication23
+{
+    class Program
+    {
+
+       static AutoResetEvent arevent = new AutoResetEvent(false);
+
+        static byte[] buffor = new byte[1024];
+
+
+        delegate int DelegateType(int size);
+        static DelegateType nazwa;
+
+        static int silniai(int size)
+        {
+            if (size < 2)
+            {
+                return 1;
+
+            }
+            return size * (size - 1);
+        }
+
+        static int silniar(int size)
+        {
+            int wynik = 1;
+            for (int i = 1; i < size + 1; i++)
+            {
+                wynik *= i;
+            }
+            return wynik;
+        }
+
+        static int Fibonachi(int size)
+        {
+            int a = 0;
+            int b = 1;
+            // In N steps compute Fibonacci sequence iteratively.
+            for (int i = 0; i < size; i++)
+            {
+                int liczydło = a;
+                a = b;
+                b = liczydło + b;
+            }
+            return a;
+        }
+
+
+        static void Main(string[] args)
+        {
+
+            //  AutoResetEvent  //dokończ z auto reset
+             uruchomzad6();
+
+            arevent.WaitOne();
+
+             uruchomzad7();
+
+            DelegateType nazwa = new DelegateType(silniar);
+            IAsyncResult wynik = nazwa.BeginInvoke(6, null, null);
+
+            DelegateType nazwa1 = new DelegateType(silniai);
+            IAsyncResult wynik1 = nazwa1.BeginInvoke(5, null, null);
+
+            DelegateType nazwa2 = new DelegateType(Fibonachi);
+            IAsyncResult wynik2 = nazwa2.BeginInvoke(6, null, null);
+
+
+
+            
+
+            wynik.AsyncWaitHandle.WaitOne();
+            wynik1.AsyncWaitHandle.WaitOne();
+            wynik2.AsyncWaitHandle.WaitOne();
+
+            int returnValue = nazwa.EndInvoke(wynik);
+            int returnValue1 = nazwa1.EndInvoke(wynik1);
+            int returnValue2 = nazwa2.EndInvoke(wynik2);
+
+       
+
+            Console.WriteLine("wynik silni: "+ returnValue);
+            Console.WriteLine("wynik silni: " + returnValue1);
+            Console.WriteLine("wynik fibonachi: " + returnValue2);
+            //dokończ
+            Console.ReadKey();
+
+        }
+
+        public static void uruchomzad6()
+        {
+
+           
+
+            string path = Path.Combine(Environment.CurrentDirectory, "text.txt");
+
+            FileStream fileStream = new FileStream(path, FileMode.Open);
+
+
+            IAsyncResult wynik = fileStream.BeginRead(buffor, 0, 1024, CallBack, fileStream);
+
+            arevent.Set();
+        }
+
+        public static void uruchomzad7()
+        {
+            string path = Path.Combine(Environment.CurrentDirectory, "text.txt");
+
+            FileStream fileStream = new FileStream(path, FileMode.Open);
+
+
+            IAsyncResult wynik = fileStream.BeginRead(buffor, 0, 1024, null, fileStream);
+
+            Thread.Sleep(200);//jo to ma sens kiedy robisz rzeczy równolegle czytasz z innego dysku
+
+            var strim = (FileStream)wynik.AsyncState;
+            int bytes = strim.EndRead(wynik);
+            strim.Close();
+
+            Console.WriteLine(Encoding.ASCII.GetString(buffor));
+
+        }
+
+
+        static void CallBack(IAsyncResult wynik)
+        {
+            Console.WriteLine("Czytam...");
+
+            var strim = (FileStream)wynik.AsyncState;
+
+            int bytes = strim.EndRead(wynik);
+            strim.Close();
+
+            Console.WriteLine(Encoding.ASCII.GetString(buffor));
+
+        }
+
+
+
+    }
+}
