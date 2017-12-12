@@ -1,0 +1,215 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace ConsoleApplication26
+{
+
+   
+
+
+
+
+        //  public event MatMulAsyncCompletedEventHandler MatMulAsyncCompleted;
+
+        public delegate void MatMulCompleted(object sender, MatMuCompletedEventArgs e);
+
+        public class MatMuCompletedEventArgs : AsyncCompletedEventArgs
+        {
+            public MatMuCompletedEventArgs(Exception ex, bool canceled, object userState)
+            : base(ex, canceled, userState)
+            {
+
+
+            }
+
+
+
+        }
+
+
+
+    class MatMulCalculator
+    {
+
+        private delegate void WorkerEventHandler(double[,] tab1, double[,] tab2, int size, AsyncOperation asyncOp);
+
+        public event MatMulCompleted MatMulCompleted;
+
+        private HybridDictionary tasks = new HybridDictionary();
+
+        private SendOrPostCallback onCompletedDelegate;
+
+        private void CalculateCompleted(object state)
+        {
+            MatMuCompletedEventArgs e = state as MatMuCompletedEventArgs;
+
+            if (MatMulCompleted != null)
+            {
+                MatMulCompleted(this, e);
+            }
+        }
+
+
+        public MatMulCalculator()
+        {
+            onCompletedDelegate = new SendOrPostCallback(CalculateCompleted);
+        }
+
+        
+
+
+        void CalculateWorker(double[,] tab1, double[,] tab2, int size, AsyncOperation asyncOp)
+        {
+
+            double[,] wynik = new double[size, size];
+
+            for (int i = 0; i < size; i++)
+            {
+
+                for (int j = 0; j < size; j++)
+                {
+
+                    wynik[i, j] = 0;
+
+                    for (int k = 0; k < size; k++)
+                    {
+
+                        wynik[i, j] = wynik[i, j] + (tab1[i, k] * tab2[k, j]);
+
+
+
+                    }
+
+                    System.Console.WriteLine(wynik[i, j]);
+                }
+
+
+                lock (tasks.SyncRoot)
+                {
+                    tasks.Remove(asyncOp.UserSuppliedState);
+                }
+
+                MatMuCompletedEventArgs e = new MatMuCompletedEventArgs(null, false, asyncOp.UserSuppliedState);
+                asyncOp.PostOperationCompleted(onCompletedDelegate, e);
+
+            }
+
+
+        }
+
+        double getVal(double[,] mat, int column, int row, int size)
+        {
+
+
+            return mat[row, column];
+        }
+
+
+        public double[,] MatMul(double[,] tab1, double[,] tab2, int size)
+        {
+            double[,] wynik = new double[size, size];
+
+            for (int i = 0; i < size; i++)
+            {
+
+                for (int j = 0; j < size; j++)
+                {
+
+                    wynik[i, j] = 0;
+
+                    for (int k = 0; k < size; k++)
+                    {
+
+                        wynik[i, j] = wynik[i, j] + (tab1[i, k] * tab2[k, j]);
+
+
+
+                    }
+
+                    System.Console.WriteLine(wynik[i, j]);
+                }
+
+
+
+            }
+
+
+            return wynik;
+
+        }
+
+
+
+
+
+        public void MatMulAsync(double[,] tab1, double[,] tab2, int size, object userState)
+        {
+            AsyncOperation asyncOp = AsyncOperationManager.CreateOperation(userState);
+
+
+            lock (tasks.SyncRoot)
+            {
+                if (tasks.Contains(userState))
+                {
+                    throw new ArgumentException("User state parameter must be unique", "userState");
+                }
+
+                tasks[userState] = asyncOp;
+            }
+
+            WorkerEventHandler worker = new WorkerEventHandler(CalculateWorker);
+
+            //Execute process Asynchronously
+            worker.BeginInvoke( tab1,  tab2, size, asyncOp, null, null);
+
+        }
+
+
+        public void CancelAsync(object taskId)
+        {
+            AsyncOperation asyncOp = tasks[taskId] as AsyncOperation;
+            if (asyncOp != null)
+            {
+                lock (tasks.SyncRoot)
+                {
+                    tasks.Remove(taskId);
+                }
+            }
+        }
+    }
+
+
+
+
+        class Program
+    {
+        static void Main(string[] args)
+        {
+            double[,] one = new double[2, 2];
+            one[0, 0] = 3;
+            one[1, 0] = 0;
+            one[0, 1] = 1;
+            one[1, 1] = 1;
+
+            double[,] two = new double[2, 2];
+            two[0, 0] = 2;
+            two[1, 0] = 1;
+            two[0, 1] = 1;
+            two[1, 1] = 0;
+
+
+            MatMulCalculator mmc = new MatMulCalculator();
+            mmc.MatMul(one, two, 2);
+            
+
+
+
+        }
+    }
+}
